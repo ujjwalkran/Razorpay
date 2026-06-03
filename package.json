@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "backend": "node server/index.js",
+    "backend:smoke": "node server/smoke-test.js"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
