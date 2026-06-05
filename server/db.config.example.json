@@ -1,0 +1,7 @@
+{
+  "database": {
+    "engine": "sqlite",
+    "adapterModule": "./drivers/sqlite.js",
+    "path": "data/paybridge-sandbox.sqlite"
+  }
+}

@@ -15,6 +15,7 @@
     "lucide-react": "latest",
     "react": "latest",
     "react-dom": "latest",
+    "sync-mysql": "^3.0.1",
     "typescript": "latest",
     "vite": "latest"
   },

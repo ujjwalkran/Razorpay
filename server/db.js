@@ -1,100 +1,42 @@
-import { mkdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
+import { getDatabaseConfig } from './config.js';
+import { createSqliteDatabase } from './drivers/sqlite.js';
+import { createPostgresDatabase } from './drivers/postgres.js';
+import { createMysqlDatabase } from './drivers/mysql.js';
+import { createOracleDatabase } from './drivers/oracle.js';
 
-const defaultDbPath = resolve(process.cwd(), 'data/paybridge-sandbox.sqlite');
-
-export function createDatabase(dbPath = process.env.PAYBRIDGE_DB_PATH || defaultDbPath) {
-  if (dbPath !== ':memory:') mkdirSync(dirname(dbPath), { recursive: true });
-  const db = new DatabaseSync(dbPath);
-  db.exec('PRAGMA foreign_keys = ON;');
-  migrate(db);
-  return db;
+function resolveAdapterForEngine(engine) {
+  if (engine === 'postgres' || engine === 'postgresql') return './drivers/postgres.js';
+  if (engine === 'mysql') return './drivers/mysql.js';
+  if (engine === 'oracle') return './drivers/oracle.js';
+  return './drivers/sqlite.js';
 }
 
-function migrate(db) {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS merchants (
-      id TEXT PRIMARY KEY,
-      business_name TEXT NOT NULL,
-      email TEXT NOT NULL UNIQUE,
-      status TEXT NOT NULL DEFAULT 'sandbox_active',
-      created_at TEXT NOT NULL
-    );
+export function createDatabase(dbPath = getDatabaseConfig().path, engineOverride = null) {
+  const baseConfig = getDatabaseConfig();
+  const resolvedEngine = (engineOverride || process.env.PAYBRIDGE_DB_ENGINE || baseConfig.engine || 'sqlite').toLowerCase();
+  const resolvedAdapter = process.env.PAYBRIDGE_DB_ADAPTER
+    || (engineOverride ? resolveAdapterForEngine(resolvedEngine) : baseConfig.adapterModule)
+    || resolveAdapterForEngine(resolvedEngine);
+  const config = getDatabaseConfig({
+    ...process.env,
+    PAYBRIDGE_DB_PATH: dbPath,
+    PAYBRIDGE_DB_ENGINE: resolvedEngine,
+    PAYBRIDGE_DB_ADAPTER: resolvedAdapter,
+  });
 
-    CREATE TABLE IF NOT EXISTS api_keys (
-      id TEXT PRIMARY KEY,
-      merchant_id TEXT NOT NULL REFERENCES merchants(id),
-      key_prefix TEXT NOT NULL,
-      key_hash TEXT NOT NULL UNIQUE,
-      created_at TEXT NOT NULL,
-      last_used_at TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS orders (
-      id TEXT PRIMARY KEY,
-      merchant_id TEXT NOT NULL REFERENCES merchants(id),
-      amount INTEGER NOT NULL CHECK (amount > 0),
-      currency TEXT NOT NULL,
-      receipt TEXT,
-      status TEXT NOT NULL,
-      notes_json TEXT NOT NULL DEFAULT '{}',
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS payments (
-      id TEXT PRIMARY KEY,
-      merchant_id TEXT NOT NULL REFERENCES merchants(id),
-      order_id TEXT NOT NULL REFERENCES orders(id),
-      amount INTEGER NOT NULL CHECK (amount > 0),
-      currency TEXT NOT NULL,
-      method TEXT NOT NULL,
-      status TEXT NOT NULL,
-      processor_reference TEXT,
-      failure_code TEXT,
-      failure_reason TEXT,
-      method_details_json TEXT NOT NULL DEFAULT '{}',
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS refunds (
-      id TEXT PRIMARY KEY,
-      merchant_id TEXT NOT NULL REFERENCES merchants(id),
-      payment_id TEXT NOT NULL REFERENCES payments(id),
-      amount INTEGER NOT NULL CHECK (amount > 0),
-      status TEXT NOT NULL,
-      reason TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS webhook_events (
-      id TEXT PRIMARY KEY,
-      merchant_id TEXT NOT NULL REFERENCES merchants(id),
-      event_type TEXT NOT NULL,
-      resource_type TEXT NOT NULL,
-      resource_id TEXT NOT NULL,
-      payload_json TEXT NOT NULL,
-      delivery_status TEXT NOT NULL DEFAULT 'pending',
-      attempts INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL,
-      delivered_at TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS idempotency_keys (
-      merchant_id TEXT NOT NULL REFERENCES merchants(id),
-      key TEXT NOT NULL,
-      method TEXT NOT NULL,
-      path TEXT NOT NULL,
-      request_hash TEXT NOT NULL,
-      status_code INTEGER NOT NULL,
-      response_json TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      PRIMARY KEY (merchant_id, key)
-    );
-  `);
+  switch ((config.engine || 'sqlite').toLowerCase()) {
+    case 'sqlite':
+      return createSqliteDatabase(config);
+    case 'postgres':
+    case 'postgresql':
+      return createPostgresDatabase(config);
+    case 'mysql':
+      return createMysqlDatabase(config);
+    case 'oracle':
+      return createOracleDatabase(config);
+    default:
+      throw new Error(`Unsupported DB engine '${config.engine}'. Use sqlite, postgres, mysql, or oracle.`);
+  }
 }
 
 export function rowToJson(row, jsonFields = []) {

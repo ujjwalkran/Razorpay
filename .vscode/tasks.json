@@ -1,0 +1,21 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run backend diagnostic",
+			"type": "shell",
+			"command": "npm run backend",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Run backend diagnostic",
+			"type": "shell",
+			"command": "npm run backend",
+			"isBackground": false,
+			"problemMatcher": []
+		}
+	]
+}

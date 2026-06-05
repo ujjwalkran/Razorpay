@@ -5,3 +5,6 @@ dist
 .DS_Store
 *.log
 data/*.sqlite
+server/db.config.json
+server/db.config.local.json
+debug_mysql_split.js

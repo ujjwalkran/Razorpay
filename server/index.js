@@ -1,4 +1,5 @@
 import { createServer as createHttpServer } from 'node:http';
+import { pathToFileURL } from 'node:url';
 import { authenticate } from './auth.js';
 import { createDatabase } from './db.js';
 import { badRequest, getHeader, notFound, parseJson, sendJson, unauthorized } from './http.js';
@@ -38,7 +39,7 @@ export function createServer({ db = createDatabase(), processor = new MockProces
         return;
       }
 
-      if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      if (isUniqueConstraintError(error)) {
         sendJson(response, 409, { error: 'conflict', message: 'A resource with this unique field already exists.' });
         return;
       }
@@ -220,6 +221,14 @@ async function withIdempotency({ request, response, db, merchant, body }, handle
   }
 }
 
+function isUniqueConstraintError(error) {
+  return (
+    error?.code === 'SQLITE_CONSTRAINT_UNIQUE' ||
+    error?.code === 'ERR_SQLITE_ERROR' && /UNIQUE constraint failed/i.test(error.message || '') ||
+    error?.errcode === 2067
+  );
+}
+
 function validation(message) {
   return { statusCode: 400, body: { error: 'validation_error', message } };
 }
@@ -240,7 +249,7 @@ function isCurrency(value) {
   return typeof value === 'string' && /^[A-Za-z]{3}$/.test(value);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const port = Number(process.env.PORT || 8787);
   const server = createServer();
   server.listen(port, '0.0.0.0', () => {

@@ -3,7 +3,7 @@ import { once } from 'node:events';
 import { createDatabase } from './db.js';
 import { createServer } from './index.js';
 
-const db = createDatabase(':memory:');
+const db = createDatabase(':memory:', 'sqlite');
 const server = createServer({ db });
 server.listen(0, '127.0.0.1');
 await once(server, 'listening');

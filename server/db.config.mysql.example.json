@@ -1,0 +1,7 @@
+{
+  "database": {
+    "engine": "mysql",
+    "adapterModule": "./drivers/mysql.js",
+    "connectionString": "mysql://password:password@127.0.0.1:3306/paybridge"
+  }
+}

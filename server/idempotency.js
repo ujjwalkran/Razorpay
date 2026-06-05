@@ -7,7 +7,7 @@ export function requestHash(body) {
 
 export function getStoredIdempotentResponse(db, merchantId, key, method, path, body) {
   if (!key) return null;
-  const existing = db.prepare('SELECT * FROM idempotency_keys WHERE merchant_id = ? AND key = ?').get(merchantId, key);
+  const existing = db.prepare('SELECT * FROM idempotency_keys WHERE merchant_id = ? AND \`key\` = ?').get(merchantId, key);
   if (!existing) return null;
 
   const incomingHash = requestHash(body);
@@ -32,7 +32,7 @@ export function getStoredIdempotentResponse(db, merchantId, key, method, path, b
 export function storeIdempotentResponse(db, merchantId, key, method, path, body, statusCode, responseBody) {
   if (!key) return;
   db.prepare(`
-    INSERT INTO idempotency_keys (merchant_id, key, method, path, request_hash, status_code, response_json, created_at)
+    INSERT INTO idempotency_keys (merchant_id, \`key\`, method, path, request_hash, status_code, response_json, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `).run(merchantId, key, method, path, requestHash(body), statusCode, JSON.stringify(responseBody), nowIso());
 }
